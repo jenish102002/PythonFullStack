@@ -2,8 +2,6 @@
 
 A modern, full-stack web application for booking box cricket pitches. Built with **FastAPI** (Backend) and **React** (Frontend), featuring a premium neon-glassmorphism UI.
 
-![Dashboard Screenshot](/Users/jenishpatel/.gemini/antigravity/brain/ba258173-8bc9-4486-8d69-bf879d1575f9/dashboard_initial_view_1771140591277.png)
-
 ## ✨ Features
 
 ### 👤 User Features
@@ -27,8 +25,8 @@ A modern, full-stack web application for booking box cricket pitches. Built with
 *   **Documentation**: Swagger UI / OpenAPI
 
 ### Frontend
-*   **Framework**: React
-*   **Styling**: Custom CSS
+*   **Framework**: React (Vite)
+*   **Styling**: Custom CSS (Glassmorphism, Neon Theme, Animations)
 *   **State Management**: Context API
 *   **HTTP Client**: Axios
 
@@ -56,26 +54,30 @@ npm run dev
 ```
 *The frontend will start at `http://localhost:5173`*
 
-## 🔑 Default Credentials
+##  API Documentation
 
-**Admin Account:**
-*   **Username**: `Admin123`
-*   **Password**: `Admin@123`
+The backend provides a comprehensive, interactive API documentation interface via Swagger UI and ReDoc.
 
-## 📖 API Documentation
+**Access Docs:** `http://localhost:8000/docs`
 
-Once the backend is running, you can access the interactive API docs at:
-`http://localhost:8000/docs`
+### Key Endpoints
 
-## 📸 Screenshots
+#### 🔐 Authentication
+*   **POST** `/token`: Login to receive an access token (OAuth2 Password Flow).
+*   **POST** `/register`: Create a new user account.
+*   **GET** `/users/me`: Retrieve current user profile.
 
-### Booking Dashboard
-Premium glass-morphism interface for slot selection.
-![Dashboard](/Users/jenishpatel/.gemini/antigravity/brain/ba258173-8bc9-4486-8d69-bf879d1575f9/dashboard_initial_view_1771140591277.png)
+#### 📅 Slots (Admin)
+*   **POST** `/slots/`: Create a new time slot with Price.
+*   **GET** `/slots/`: List all available (unbooked) slots.
 
-### Payment History
-Comprehensive tracking of all user transactions.
-![Payment History](/Users/jenishpatel/.gemini/antigravity/brain/ba258173-8bc9-4486-8d69-bf879d1575f9/payment_history_page_1771143880849.png)
+#### 🎟️ Bookings
+*   **POST** `/bookings/`: Book a specific slot (Requires Auth).
+*   **GET** `/bookings/my`: Retrieve the logged-in user's booking history.
+*   **GET** `/bookings/all`: (Admin Only) Retrieve global booking history with user details.
+
+### Schema Details
+All API responses and request bodies are strictly typed using Pydantic models. You can view the full schema definitions (User, Slot, Booking, Token) directly in the `/docs` interface.
 
 ## 📄 License
 This project is open-source and available under the MIT License.
