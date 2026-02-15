@@ -52,6 +52,19 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 # --- Slot Routes ---
 @router.post("/slots/", response_model=SlotResponse)
 async def create_slot(slot: SlotCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    # Check for overlapping slots
+    # Overlap logic: (StartA < EndB) and (EndA > StartB)
+    stmt = select(Slot).filter(
+        Slot.start_time < slot.end_time,
+        Slot.end_time > slot.start_time
+    )
+    result = await db.execute(stmt)
+    if result.scalars().first():
+        raise HTTPException(
+            status_code=400, 
+            detail="A slot already exists during this time range."
+        )
+
     new_slot = Slot(**slot.dict())
     db.add(new_slot)
     await db.commit()
@@ -63,18 +76,58 @@ async def read_slots(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Slot).filter(Slot.is_booked == False))
     return result.scalars().all()
 
+@router.get("/admin/slots/", response_model=List[SlotResponse])
+async def read_all_slots_admin(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    result = await db.execute(select(Slot).order_by(Slot.start_time.desc()))
+    return result.scalars().all()
+
+@router.put("/slots/{slot_id}", response_model=SlotResponse)
+async def update_slot(slot_id: int, slot_update: SlotCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    result = await db.execute(select(Slot).filter(Slot.id == slot_id))
+    slot = result.scalars().first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    
+    # Update fields
+    slot.start_time = slot_update.start_time
+    slot.end_time = slot_update.end_time
+    slot.price = slot_update.price
+    
+    await db.commit()
+    await db.refresh(slot)
+    return slot
+
+@router.delete("/slots/{slot_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_slot(slot_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_admin)):
+    result = await db.execute(select(Slot).filter(Slot.id == slot_id))
+    slot = result.scalars().first()
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    
+    if slot.is_booked:
+         raise HTTPException(status_code=400, detail="Cannot delete a booked slot. Cancel booking first.")
+
+    await db.delete(slot)
+    await db.commit()
+    return None
+
 # --- Booking Routes ---
 @router.post("/bookings/", response_model=BookingResponse)
 async def create_booking(booking: BookingCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Check if slot exists and is available using 'with for_update' to lock the row
-    # Note: asyncpg/SQLAlchemy async locking syntax:
+    
+    # Use select for update to lock the row and prevent race conditions
     result = await db.execute(select(Slot).filter(Slot.id == booking.slot_id).with_for_update())
     slot = result.scalars().first()
     
     if not slot:
         raise HTTPException(status_code=404, detail="Slot not found")
+    
+    # Critical Check: If already booked, fail immediately
     if slot.is_booked:
-        raise HTTPException(status_code=400, detail="Slot already booked")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, # 409 Conflict is semantic for this
+            detail="This slot has already been booked by another user."
+        )
     
     slot.is_booked = True
     new_booking = Booking(user_id=current_user.id, slot_id=slot.id)
@@ -82,14 +135,7 @@ async def create_booking(booking: BookingCreate, db: AsyncSession = Depends(get_
     
     await db.commit()
     await db.refresh(new_booking)
-    
-    # Eager load relationships for response
-    # Re-fetch with relationships
-    # Ideally should use select(Booking).options(joinedload(Booking.user), joinedload(Booking.slot))...
-    # For now, let's just return basic info or handle lazy load carefully.
-    # Actually, SQLAlchemy Async doesn't support lazy loading. We need to eager load.
-    
-    # Let's simple re-query with eager load
+
     from sqlalchemy.orm import selectinload
     stmt = select(Booking).filter(Booking.id == new_booking.id).options(selectinload(Booking.user), selectinload(Booking.slot))
     result = await db.execute(stmt)
