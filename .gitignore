@@ -1,0 +1,25 @@
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.db
+backend/.env
+backend/box_cricket.db
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.DS_Store
+frontend/.env
+frontend/dist/
+frontend/node_modules/
+frontend/.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+*.swp
